@@ -1,8 +1,8 @@
 import subprocess
 import os
 import time
-import curses  # Added for curses.LINES and curses.COLS
-from .core import log_debug, safe_addstr  # Adjusted to relative import
+import curses
+from lxc_tui.core import log_debug, safe_addstr
 
 def get_lxc_column(column_name):
     try:

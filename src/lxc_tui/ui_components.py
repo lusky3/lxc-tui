@@ -1,6 +1,6 @@
 import curses
-import time  # Added for time.sleep()
-from .core import log_debug, safe_addstr, screen_lock  # Adjusted to relative import, added screen_lock
+import time
+from lxc_tui.core import log_debug, safe_addstr, screen_lock
 
 def display_container_list(stdscr, lxc_info, current_row):
     lines, cols = stdscr.getmaxyx()
@@ -134,7 +134,7 @@ def show_help(stdscr, show_stopped, pause_event, plugins):
     help_lines = [
         "Help Menu",
         "",
-        "Depois Available Commands:",
+        "Available Commands:",
         "  - Up/Down arrows: Navigate the list",
         "  - Enter/Space: Attach to the selected LXC container",
         "  - i: Show detailed container info",
@@ -154,7 +154,7 @@ def show_help(stdscr, show_stopped, pause_event, plugins):
     show_panel(stdscr, help_lines, curses.color_pair(4), pause_event)
 
 def show_info(stdscr, lxc_id, pause_event):
-    from .lxc_utils import get_lxc_config  # Adjusted to relative import
+    from lxc_tui.lxc_utils import get_lxc_config
     config_info = get_lxc_config(lxc_id)
 
     info_lines = [

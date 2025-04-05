@@ -3,11 +3,11 @@ import threading
 import argparse
 import os
 import importlib
-import time  # Added for time.time()
-from .core import log_debug, DEBUG, Plugin, safe_addstr  # Adjusted to relative import
-from .lxc_utils import get_lxc_info, refresh_lxc_info
-from .ui_components import display_container_list, update_navigation_bar
-from .event_handler import handle_events
+import time
+from lxc_tui.core import log_debug, DEBUG, Plugin, safe_addstr
+from lxc_tui.lxc_utils import get_lxc_info, refresh_lxc_info
+from lxc_tui.ui_components import display_container_list, update_navigation_bar
+from lxc_tui.event_handler import handle_events
 
 def load_plugins():
     plugins = []
