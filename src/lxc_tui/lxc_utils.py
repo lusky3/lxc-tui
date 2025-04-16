@@ -4,11 +4,18 @@ import time
 import curses
 from lxc_tui.core import log_debug, safe_addstr
 
+
 def get_lxc_column(column_name):
     try:
-        with open(os.devnull, 'w') as devnull:
-            proc = subprocess.Popen(["lxc-ls", "--fancy", f"--fancy-format={column_name}"],
-                                    stdout=subprocess.PIPE, stderr=devnull, text=True, encoding='utf-8', start_new_session=True)
+        with open(os.devnull, "w") as devnull:
+            proc = subprocess.Popen(
+                ["lxc-ls", "--fancy", f"--fancy-format={column_name}"],
+                stdout=subprocess.PIPE,
+                stderr=devnull,
+                text=True,
+                encoding="utf-8",
+                start_new_session=True,
+            )
             lines = [line.strip() for line in proc.stdout if line.strip()]
             proc.wait(timeout=5)
             return lines[1:] if lines else []
@@ -19,6 +26,7 @@ def get_lxc_column(column_name):
         log_debug(f"Unexpected error in get_lxc_column: {e}")
         return []
 
+
 def get_lxc_info(include_stopped=False):
     try:
         names = get_lxc_column("NAME")
@@ -27,7 +35,9 @@ def get_lxc_info(include_stopped=False):
         ipv6s = get_lxc_column("IPV6")
         unprivilegeds = get_lxc_column("UNPRIVILEGED")
 
-        min_length = min(len(names), len(states), len(ipv4s), len(ipv6s), len(unprivilegeds))
+        min_length = min(
+            len(names), len(states), len(ipv4s), len(ipv6s), len(unprivilegeds)
+        )
         if min_length == 0:
             return []
 
@@ -62,24 +72,36 @@ def get_lxc_info(include_stopped=False):
         log_debug(f"Error getting LXC info: {e}")
         return []
 
+
 def get_lxc_config(lxc_id):
     config_file = f"/etc/pve/lxc/{lxc_id}.conf"
     config_info = {}
     if os.path.exists(config_file):
         with open(config_file) as conf_file:
-            config_info = dict(line.strip().split(":", 1) for line in conf_file if ":" in line)
+            config_info = dict(
+                line.strip().split(":", 1) for line in conf_file if ":" in line
+            )
     return config_info
+
 
 def execute_lxc_command(stdscr, command, operation_done_event):
     try:
         log_debug(f"Executing command: {' '.join(command)}")
-        with open(os.devnull, 'w') as devnull:
-            proc = subprocess.Popen(command, start_new_session=True, stdout=devnull, stderr=devnull)
-            animation = ['|', '/', '-', '\\']
+        with open(os.devnull, "w") as devnull:
+            proc = subprocess.Popen(
+                command, start_new_session=True, stdout=devnull, stderr=devnull
+            )
+            animation = ["|", "/", "-", "\\"]
             idx = 0
             start_time = time.time()
             while proc.poll() is None and (time.time() - start_time) < 15:
-                safe_addstr(stdscr, curses.LINES - 2, 0, f"Executing {command[0]} {command[-1]} {animation[idx % 4]}", curses.color_pair(4))
+                safe_addstr(
+                    stdscr,
+                    curses.LINES - 2,
+                    0,
+                    f"Executing {command[0]} {command[-1]} {animation[idx % 4]}",
+                    curses.color_pair(4),
+                )
                 stdscr.refresh()
                 time.sleep(0.1)
                 idx += 1
@@ -89,16 +111,29 @@ def execute_lxc_command(stdscr, command, operation_done_event):
     except subprocess.TimeoutExpired as e:
         log_debug(f"Command timed out: {e}")
         proc.kill()
-        safe_addstr(stdscr, curses.LINES - 2, 0, f"Command {command[0]} {command[-1]} timed out", curses.color_pair(2))
+        safe_addstr(
+            stdscr,
+            curses.LINES - 2,
+            0,
+            f"Command {command[0]} {command[-1]} timed out",
+            curses.color_pair(2),
+        )
         stdscr.refresh()
         time.sleep(2)
         return False
     except Exception as e:
         log_debug(f"Error executing command: {e}")
-        safe_addstr(stdscr, curses.LINES - 2, 0, f"Error executing {command[0]} {command[-1]}: {e}", curses.color_pair(2))
+        safe_addstr(
+            stdscr,
+            curses.LINES - 2,
+            0,
+            f"Error executing {command[0]} {command[-1]}: {e}",
+            curses.color_pair(2),
+        )
         stdscr.refresh()
         time.sleep(2)
         return False
+
 
 def refresh_lxc_info(lxc_info, stop_event, pause_event, show_stopped):
     while not stop_event.is_set():

@@ -1,110 +1,73 @@
-import curses
-import threading
-import argparse
-import os
-import importlib
-import time
-from lxc_tui.core import log_debug, DEBUG, Plugin, safe_addstr
-from lxc_tui.lxc_utils import get_lxc_info, refresh_lxc_info
-from lxc_tui.ui_components import display_container_list, update_navigation_bar
-from lxc_tui.event_handler import handle_events
+import pytest
+import logging
+from lxc_tui.lxc_tui import main, load_plugins
 
-def load_plugins():
-    plugins = []
-    plugin_dir = os.path.join(os.path.dirname(__file__), "plugins")
-    if not os.path.exists(plugin_dir):
-        os.makedirs(plugin_dir)
-    for filename in os.listdir(plugin_dir):
-        if filename.endswith(".py") and filename != "__init__.py":
-            module_name = filename[:-3]
-            try:
-                module = importlib.import_module(f"lxc_tui.plugins.{module_name}")
-                for attr in dir(module):
-                    obj = getattr(module, attr)
-                    if isinstance(obj, type) and issubclass(obj, Plugin) and obj != Plugin:
-                        plugin_instance = obj()
-                        plugins.append(plugin_instance)
-                        log_debug(f"Loaded plugin: {module_name}.{attr}")
-            except ImportError as e:
-                log_debug(f"Failed to load plugin {module_name}: {e}")
-    return plugins
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
-def main(stdscr):
-    if curses.LINES < 10 or curses.COLS < 80:
-        safe_addstr(stdscr, 0, 0, "Terminal too small. Please enlarge the terminal.")
-        stdscr.refresh()
-        stdscr.getch()
-        return
-
-    curses.curs_set(0)
-    stdscr.nodelay(True)
-    stdscr.timeout(50)
-
-    show_stopped = False
-    lxc_info = []
-    invalid_key_timeout = None
-    stop_event = threading.Event()
-    pause_event = threading.Event()
-    operation_done_event = threading.Event()
-    current_row = 0
-
-    try:
-        lxc_info = get_lxc_info(show_stopped)
-    except Exception as e:
-        log_debug(f"Error in main: {e}")
-        safe_addstr(stdscr, 0, 0, f"Error getting LXC info: {e}")
-        stdscr.refresh()
-        stdscr.getch()
-        return
-
-    refresh_thread = threading.Thread(target=refresh_lxc_info, args=(lxc_info, stop_event, pause_event, show_stopped))
-    refresh_thread.daemon = True
-    refresh_thread.start()
-
-    curses.start_color()
-    curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_BLACK)
-    curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)
-    curses.init_pair(3, curses.COLOR_BLACK, curses.COLOR_WHITE)
-    curses.init_pair(4, curses.COLOR_GREEN, curses.COLOR_BLACK)
+def test_load_plugins(mocker):
+    mocker.patch('os.path.exists', return_value=True)
+    mocker.patch('os.listdir', return_value=["__init__.py"])
+    mocker.patch('importlib.import_module')
 
     plugins = load_plugins()
-    display_container_list(stdscr, lxc_info, current_row)
-    update_navigation_bar(stdscr, show_stopped, plugins, force=True)
+    assert plugins == []
 
-    last_lxc_info = lxc_info.copy()
+def test_main_initialization(mocker):
+    stdscr = mocker.Mock()
+    stdscr.getmaxyx.return_value = (20, 80)
+    stdscr.getch.return_value = -1
+    stdscr.nodelay = mocker.Mock(return_value=None)
+    stdscr.timeout = mocker.Mock(return_value=None)
+    
+    # Mock curses module with minimal attributes
+    curses_mock = mocker.MagicMock()
+    curses_mock.LINES = 20
+    curses_mock.COLS = 80
+    curses_mock.color_pair = lambda x: x
+    curses_mock.init_pair = lambda *args: None
+    curses_mock.start_color = lambda: None
+    curses_mock.curs_set = lambda x: None
+    curses_mock.wrapper = lambda func: func(stdscr)
+    
+    mocker.patch('lxc_tui.lxc_tui.curses', curses_mock)
+    mocker.patch('lxc_tui.core.curses', curses_mock)
+    mocker.patch('lxc_tui.ui_components.curses', curses_mock)
+    mocker.patch('lxc_tui.lxc_utils.curses', curses_mock)
+    mocker.patch('lxc_tui.event_handler.curses', curses_mock)
 
-    while True:
-        if invalid_key_timeout and time.time() > invalid_key_timeout:
-            safe_addstr(stdscr, curses.LINES - 2, 0, " " * (curses.COLS - 1), curses.color_pair(0))
-            invalid_key_timeout = None
+    # Mock threading.Thread with explicit behavior
+    thread_mock = mocker.Mock()
+    thread_mock.start = mocker.Mock(return_value=None)
+    thread_mock.join = mocker.Mock(return_value=None)
+    thread_mock.daemon = True
+    mocker.patch('threading.Thread', return_value=thread_mock)
 
-        new_lxc_info = get_lxc_info(show_stopped)
-        if new_lxc_info != last_lxc_info:
-            lxc_info[:] = new_lxc_info
-            last_lxc_info = lxc_info.copy()
-            display_container_list(stdscr, lxc_info, current_row)
+    # Mock dependencies
+    mocker.patch('lxc_tui.lxc_utils.get_lxc_info', return_value=[])
+    mocker.patch('lxc_tui.ui_components.display_container_list', return_value=None)
+    mocker.patch('lxc_tui.ui_components.update_navigation_bar', return_value=None)
+    
+    # Mock handle_events in the lxc_tui.lxc_tui namespace
+    handle_events_mock = mocker.patch('lxc_tui.lxc_tui.handle_events')
+    handle_events_mock.return_value = (0, False, True, None)
+    handle_events_mock.side_effect = lambda *args, **kwargs: (
+        logger.debug("Mocked handle_events called"),
+        (0, False, True, None)
+    )[1]
 
-        current_row, show_stopped, should_quit, invalid_key_timeout = handle_events(
-            stdscr, lxc_info, current_row, show_stopped, pause_event, stop_event, operation_done_event, plugins
-        )
+    mocker.patch('time.time', return_value=0)
 
-        if should_quit:
-            refresh_thread.join()
-            break
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="LXC TUI")
-    parser.add_argument('--debug', action='store_true', help="Enable debug logging")
-    args = parser.parse_args()
-    DEBUG = args.debug
-
-    if DEBUG:
-        with open("debug_log.txt", "w") as debug_file:
-            debug_file.write(f"Debugging started at {time.ctime()}\n")
-
+    logger.debug("Starting main")
     try:
-        curses.wrapper(main)
+        main(stdscr)
+        logger.debug("Main completed successfully")
     except Exception as e:
-        log_debug(f"Error running the TUI: {e}")
-        print(f"Error running the TUI: {e}")
-        input("Press Enter to exit...")
+        logger.debug(f"Main raised exception: {e}", exc_info=True)
+        pytest.fail(f"Main failed with exception: {e}")
+
+    logger.debug("Test assertions starting")
+    stdscr.nodelay.assert_called_with(True)
+    thread_mock.start.assert_called_once()
+    thread_mock.join.assert_called_once()
+    handle_events_mock.assert_called()  # Ensure mock was called
