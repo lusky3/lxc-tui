@@ -46,7 +46,6 @@ jobs:
       # Run tests with pytest
       - name: Run tests
         run: |
-          cd lxc-tui 
           pytest src/tests/ -v
 
       # Notify on failure
