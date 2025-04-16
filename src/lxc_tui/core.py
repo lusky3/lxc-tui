@@ -1,14 +1,16 @@
 import threading
 import curses
-import time  # Added for time.ctime()
+import time
 
 screen_lock = threading.Lock()
 DEBUG = False
+
 
 def log_debug(message):
     if DEBUG:
         with open("debug_log.txt", "a") as debug_file:
             debug_file.write(f"{time.ctime()}: {message}\n")
+
 
 def safe_addstr(stdscr, y, x, text, attr=0):
     with screen_lock:
@@ -23,12 +25,21 @@ def safe_addstr(stdscr, y, x, text, attr=0):
                 log_debug(f"Error in safe_addstr at ({y}, {x}): {e}")
         log_debug(f"Releasing screen_lock for safe_addstr at ({y}, {x})")
 
+
 class Plugin:
     """Base class for plugins to define their behavior."""
-    def __init__(self):
-        self.key = None  # Key to trigger the plugin (e.g., ord('x'))
-        self.description = ""  # Description for help text
 
-    def execute(self, stdscr, lxc_info, current_row, show_stopped, pause_event, operation_done_event):
-        """Execute the plugin's action. Returns updated current_row."""
+    def __init__(self):
+        self.key = None
+        self.description = ""
+
+    def execute(
+        self,
+        stdscr,
+        lxc_info,
+        current_row,
+        show_stopped,
+        pause_event,
+        operation_done_event,
+    ):
         raise NotImplementedError("Plugin must implement execute method")

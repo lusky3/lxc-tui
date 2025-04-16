@@ -1,6 +1,6 @@
 # LXC TUI
 
-A Text User Interface (TUI) for managing LXC (Linux Containers) containers on Proxmox, written in Python using the `curses` library. This tool allows you to list, start, stop, restart, and attach to LXC containers, as well as view config information.
+A Text User Interface (TUI) for managing LXC (Linux Containers) containers, written in Python using the `curses` library. This tool allows you to list, start, stop, restart, and attach to LXC containers, as well as view detailed information and toggle the display of stopped containers.
 
 ## Features
 
@@ -18,7 +18,7 @@ A Text User Interface (TUI) for managing LXC (Linux Containers) containers on Pr
 
 ## Installation
 
-Clone this repository:
+1. Clone this repository:
 
    ```bash
    git clone https://github.com/lusky3/lxc-tui.git
@@ -31,14 +31,20 @@ Clone this repository:
 
    or
 
-   Download the script directly from the [repo](https://github.com/lusky3/lxc-tui/blob/master/lxc_tui.py).
+   Download the script directly from the [repo](https://github.com/lusky3/lxc-tui/blob/main/lxc_tui.py).
+
+2. No additional Python packages are required, but for testing and development, you can install dependencies:
+
+   ```bash
+   pip install pytest mock flake8
+   ```
 
 ## Usage
 
 Run the TUI script:
 
 ```bash
-python lxc_tui.py [--debug]
+python src/lxc_tui.py [--debug]
 ```
 
 ### Controls
@@ -52,6 +58,23 @@ python lxc_tui.py [--debug]
 - **h**: Display the help menu.
 - **q/Esc**: Quit the TUI.
 
+## Testing
+
+This project includes automated tests that run on GitHub Actions. To run tests locally:
+
+1. Navigate to the `tests/` directory.
+2. Run:
+
+   ```bash
+   pytest tests/ -v
+   ```
+
+Linting can be performed with:
+
+```bash
+flake8 src/ tests/ --max-line-length=100 --extend-ignore=E501
+```
+
 ## Contributing
 
 Contributions are welcome! Please follow these steps:
@@ -63,7 +86,7 @@ Contributions are welcome! Please follow these steps:
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](https://github.com/lusky3/lxc-tui/blob/master/LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/lusky3/lxc-tui/blob/main/LICENSE) file for details.
 
 ## Acknowledgments
 
