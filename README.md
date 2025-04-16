@@ -31,7 +31,7 @@ A Text User Interface (TUI) for managing LXC (Linux Containers) containers, writ
 
    or
 
-   Download the script directly from the [repo](https://github.com/lusky3/lxc-tui/blob/master/lxc_tui.py).
+   Download the script directly from the [repo](https://github.com/lusky3/lxc-tui/blob/main/lxc_tui.py).
 
 2. No additional Python packages are required, but for testing and development, you can install dependencies:
 
@@ -86,7 +86,7 @@ Contributions are welcome! Please follow these steps:
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](https://github.com/lusky3/lxc-tui/blob/master/LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/lusky3/lxc-tui/blob/main/LICENSE) file for details.
 
 ## Acknowledgments
 
