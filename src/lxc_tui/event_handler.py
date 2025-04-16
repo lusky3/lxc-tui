@@ -2,7 +2,7 @@ import curses
 import subprocess
 import threading
 import time
-from lxc_tui.core import safe_addstr, log_debug
+from lxc_tui.core import safe_addstr, log_debug, screen_lock
 from lxc_tui.lxc_utils import execute_lxc_command, get_lxc_info
 from lxc_tui.ui_components import (
     display_container_list,
@@ -12,7 +12,6 @@ from lxc_tui.ui_components import (
     show_help,
     animate_indicator,
 )
-
 
 def handle_events(
     stdscr,
@@ -149,26 +148,49 @@ def handle_events(
                 stdscr.refresh()
                 stdscr.nodelay(False)
                 choice = stdscr.getch()
+                stdscr.nodelay(True)
                 if choice in [ord("y"), ord("Y")]:
                     operation_done_event.clear()
                     spinner_thread = threading.Thread(
                         target=animate_indicator, args=(stdscr, operation_done_event)
                     )
+                    spinner_thread.daemon = True
                     spinner_thread.start()
-                    if execute_lxc_command(
-                        stdscr, ["lxc-stop", "-n", lxc_id], operation_done_event
-                    ):
-                        safe_addstr(
-                            stdscr,
-                            curses.LINES - 2,
-                            0,
-                            f"Stopped {lxc_id}",
-                            curses.color_pair(1),
-                        )
-                        lxc_info[:] = get_lxc_info(show_stopped)
-                        display_container_list(stdscr, lxc_info, current_row)
-                    operation_done_event.set()
+
+                    # Run lxc command in a separate thread
+                    def run_lxc_command():
+                        try:
+                            success = execute_lxc_command(
+                                stdscr, ["lxc-stop", "-n", lxc_id], operation_done_event
+                            )
+                            with screen_lock:
+                                if success:
+                                    safe_addstr(
+                                        stdscr,
+                                        curses.LINES - 2,
+                                        0,
+                                        f"Stopped {lxc_id}",
+                                        curses.color_pair(1),
+                                    )
+                                else:
+                                    safe_addstr(
+                                        stdscr,
+                                        curses.LINES - 2,
+                                        0,
+                                        f"Failed to stop {lxc_id}",
+                                        curses.color_pair(2),
+                                    )
+                                stdscr.refresh()
+                        finally:
+                            operation_done_event.set()
+
+                    lxc_thread = threading.Thread(target=run_lxc_command)
+                    lxc_thread.daemon = True
+                    lxc_thread.start()
+                    lxc_thread.join()  # Wait for command to finish
                     spinner_thread.join()
+                    lxc_info[:] = get_lxc_info(show_stopped)
+                    display_container_list(stdscr, lxc_info, current_row)
                 else:
                     safe_addstr(
                         stdscr,
@@ -177,7 +199,16 @@ def handle_events(
                         "Action canceled",
                         curses.color_pair(4),
                     )
-            elif status == "STOPPED":
+                    stdscr.refresh()
+            elifS = threading.Event()
+            safe_addstr(
+                stdscr,
+                curses.LINES - 2,
+                0,
+                " " * (curses.COLS - 1),
+                curses.color_pair(0),
+            )
+            if status == "STOPPED":
                 safe_addstr(
                     stdscr,
                     curses.LINES - 2,
@@ -188,26 +219,48 @@ def handle_events(
                 stdscr.refresh()
                 stdscr.nodelay(False)
                 choice = stdscr.getch()
+                stdscr.nodelay(True)
                 if choice in [ord("y"), ord("Y")]:
                     operation_done_event.clear()
                     spinner_thread = threading.Thread(
                         target=animate_indicator, args=(stdscr, operation_done_event)
                     )
+                    spinner_thread.daemon = True
                     spinner_thread.start()
-                    if execute_lxc_command(
-                        stdscr, ["lxc-start", "-n", lxc_id], operation_done_event
-                    ):
-                        safe_addstr(
-                            stdscr,
-                            curses.LINES - 2,
-                            0,
-                            f"Started {lxc_id}",
-                            curses.color_pair(1),
-                        )
-                        lxc_info[:] = get_lxc_info(show_stopped)
-                        display_container_list(stdscr, lxc_info, current_row)
-                    operation_done_event.set()
+
+                    def run_lxc_command():
+                        try:
+                            success = execute_lxc_command(
+                                stdscr, ["lxc-start", "-n", lxc_id], operation_done_event
+                            )
+                            with screen_lock:
+                                if success:
+                                    safe_addstr(
+                                        stdscr,
+                                        curses.LINES - 2,
+                                        0,
+                                        f"Started {lxc_id}",
+                                        curses.color_pair(1),
+                                    )
+                                else:
+                                    safe_addstr(
+                                        stdscr,
+                                        curses.LINES - 2,
+                                        0,
+                                        f"Failed to start {lxc_id}",
+                                        curses.color_pair(2),
+                                    )
+                                stdscr.refresh()
+                        finally:
+                            operation_done_event.set()
+
+                    lxc_thread = threading.Thread(target=run_lxc_command)
+                    lxc_thread.daemon = True
+                    lxc_thread.start()
+                    lxc_thread.join()
                     spinner_thread.join()
+                    lxc_info[:] = get_lxc_info(show_stopped)
+                    display_container_list(stdscr, lxc_info, current_row)
                 else:
                     safe_addstr(
                         stdscr,
@@ -216,7 +269,7 @@ def handle_events(
                         "Action canceled",
                         curses.color_pair(4),
                     )
-            stdscr.nodelay(True)
+                    stdscr.refresh()
         update_navigation_bar(stdscr, show_stopped, plugins)
     elif key == ord("r"):
         if current_row < len(lxc_info):
@@ -232,36 +285,57 @@ def handle_events(
                 stdscr.refresh()
                 stdscr.nodelay(False)
                 choice = stdscr.getch()
+                stdscr.nodelay(True)
                 if choice in [ord("y"), ord("Y")]:
                     operation_done_event.clear()
                     spinner_thread = threading.Thread(
                         target=animate_indicator, args=(stdscr, operation_done_event)
                     )
+                    spinner_thread.daemon = True
                     spinner_thread.start()
-                    if execute_lxc_command(
-                        stdscr, ["lxc-stop", "-n", lxc_id], operation_done_event
-                    ) and execute_lxc_command(
-                        stdscr, ["lxc-start", "-n", lxc_id], operation_done_event
-                    ):
-                        safe_addstr(
-                            stdscr,
-                            curses.LINES - 2,
-                            0,
-                            f"Restarted {lxc_id}",
-                            curses.color_pair(1),
-                        )
-                        lxc_info[:] = get_lxc_info(show_stopped)
-                        display_container_list(stdscr, lxc_info, current_row)
-                    else:
-                        safe_addstr(
-                            stdscr,
-                            curses.LINES - 2,
-                            0,
-                            f"Failed to restart {lxc_id}",
-                            curses.color_pair(2),
-                        )
-                    operation_done_event.set()
+
+                    def run_lxc_command():
+                        try:
+                            success = (
+                                execute_lxc_command(
+                                    stdscr,
+                                    ["lxc-stop", "-n", lxc_id],
+                                    operation_done_event,
+                                )
+                                and execute_lxc_command(
+                                    stdscr,
+                                    ["lxc-start", "-n", lxc_id],
+                                    operation_done_event,
+                                )
+                            )
+                            with screen_lock:
+                                if success:
+                                    safe_addstr(
+                                        stdscr,
+                                        curses.LINES - 2,
+                                        0,
+                                        f"Restarted {lxc_id}",
+                                        curses.color_pair(1),
+                                    )
+                                else:
+                                    safe_addstr(
+                                        stdscr,
+                                        curses.LINES - 2,
+                                        0,
+                                        f"Failed to restart {lxc_id}",
+                                        curses.color_pair(2),
+                                    )
+                                stdscr.refresh()
+                        finally:
+                            operation_done_event.set()
+
+                    lxc_thread = threading.Thread(target=run_lxc_command)
+                    lxc_thread.daemon = True
+                    lxc_thread.start()
+                    lxc_thread.join()
                     spinner_thread.join()
+                    lxc_info[:] = get_lxc_info(show_stopped)
+                    display_container_list(stdscr, lxc_info, current_row)
                 else:
                     safe_addstr(
                         stdscr,
@@ -270,6 +344,7 @@ def handle_events(
                         "Action canceled",
                         curses.color_pair(4),
                     )
+                    stdscr.refresh()
             else:
                 safe_addstr(
                     stdscr,
@@ -278,18 +353,16 @@ def handle_events(
                     f"Container {lxc_id} is not running, cannot restart",
                     curses.color_pair(2),
                 )
-            stdscr.nodelay(True)
+                stdscr.refresh()
         update_navigation_bar(stdscr, show_stopped, plugins)
     elif key == ord("i"):
         if current_row < len(lxc_info):
             lxc_id = lxc_info[current_row][0]
             show_info(stdscr, lxc_id, pause_event)
-            display_container_list(stdscr, lxc_info, current_row)
-        update_navigation_bar(stdscr, show_stopped, plugins)
+            # Removed display_container_list and update_navigation_bar
     elif key == ord("h"):
         show_help(stdscr, show_stopped, pause_event, plugins)
-        display_container_list(stdscr, lxc_info, current_row)
-        update_navigation_bar(stdscr, show_stopped, plugins, force=True)
+        # Removed display_container_list and update_navigation_bar
     elif key in key_map:
         current_row = key_map[key].execute(
             stdscr,

@@ -214,14 +214,18 @@ def animate_indicator(stdscr, operation_done_event):
     indicator_chars = ["|", "/", "-", "\\"]
     i = 0
     while not operation_done_event.is_set():
-        with screen_lock:
-            safe_addstr(
-                stdscr,
-                curses.LINES - 2,
-                0,
-                indicator_chars[i % len(indicator_chars)],
-                curses.A_BOLD,
-            )
-            stdscr.refresh()
-        i += 1
-        time.sleep(0.05)
+        try:
+            with screen_lock:
+                safe_addstr(
+                    stdscr,
+                    curses.LINES - 2,
+                    curses.COLS - 2,  # Move to right corner for visibility
+                    indicator_chars[i % len(indicator_chars)],
+                    curses.A_BOLD,
+                )
+                stdscr.refresh()
+            i += 1
+            time.sleep(0.05)
+        except curses.error:
+            log_debug("Curses error in animate_indicator")
+            break
