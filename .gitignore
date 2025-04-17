@@ -3,3 +3,4 @@ __pycache__
 *.pyc
 .tool-versions
 debug_log.txt
+src/lxc_tui.egg-info
