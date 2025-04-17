@@ -2,7 +2,7 @@ import curses
 import subprocess
 import threading
 import time
-from lxc_tui.core import safe_addstr, log_debug, screen_lock  # Added screen_lock
+from lxc_tui.core import safe_addstr, log_debug, screen_lock
 from lxc_tui.lxc_utils import execute_lxc_command, get_lxc_info
 from lxc_tui.ui_components import (
     display_container_list,
@@ -26,6 +26,7 @@ def handle_events(
     key = stdscr.getch()
     invalid_key_timeout = None
     key_map = {plugin.key: plugin for plugin in plugins}
+    operation_in_progress = False
 
     if key == curses.KEY_RESIZE:
         lines, cols = stdscr.getmaxyx()
@@ -35,10 +36,10 @@ def handle_events(
         )
         display_container_list(stdscr, lxc_info, current_row)
         update_navigation_bar(stdscr, show_stopped, plugins, force=True)
-        return current_row, show_stopped, False, invalid_key_timeout
+        return current_row, show_stopped, False, invalid_key_timeout, operation_in_progress
 
     if key == -1:
-        return current_row, show_stopped, False, invalid_key_timeout
+        return current_row, show_stopped, False, invalid_key_timeout, operation_in_progress
 
     pause_event.set()
     if key == curses.KEY_UP and current_row > 0:
@@ -96,6 +97,7 @@ def handle_events(
                     )
                     spinner_thread.daemon = True
                     spinner_thread.start()
+                    log_debug(f"Starting attach operation for {lxc_id}")
                     if execute_lxc_command(
                         stdscr, ["lxc-start", "-n", lxc_id], operation_done_event
                     ):
@@ -127,7 +129,7 @@ def handle_events(
         safe_addstr(stdscr, curses.LINES - 2, 0, "Goodbye!👋", curses.color_pair(4))
         stdscr.refresh()
         stop_event.set()
-        return current_row, show_stopped, True, invalid_key_timeout
+        return current_row, show_stopped, True, invalid_key_timeout, operation_in_progress
     elif key == ord("x"):
         if current_row < len(lxc_info):
             lxc_id, hostname, status, ip_addresses, unprivileged = lxc_info[current_row]
@@ -158,12 +160,13 @@ def handle_events(
                     spinner_thread.daemon = True
                     spinner_thread.start()
 
-                    # Run lxc command in a separate thread
                     def run_lxc_command():
+                        log_debug(f"Starting lxc-stop for {lxc_id}")
                         try:
                             success = execute_lxc_command(
                                 stdscr, ["lxc-stop", "-n", lxc_id], operation_done_event
                             )
+                            log_debug(f"lxc-stop success={success}")
                             with screen_lock:
                                 if success:
                                     safe_addstr(
@@ -182,16 +185,17 @@ def handle_events(
                                         curses.color_pair(2),
                                     )
                                 stdscr.refresh()
+                        except Exception as e:
+                            log_debug(f"lxc-stop error: {e}")
                         finally:
+                            log_debug("Setting operation_done_event for stop")
                             operation_done_event.set()
 
+                    log_debug("Starting lxc_thread for stop")
                     lxc_thread = threading.Thread(target=run_lxc_command)
                     lxc_thread.daemon = True
                     lxc_thread.start()
-                    lxc_thread.join()  # Wait for command to finish
-                    spinner_thread.join()
-                    lxc_info[:] = get_lxc_info(show_stopped)
-                    display_container_list(stdscr, lxc_info, current_row)
+                    operation_in_progress = True
                 else:
                     safe_addstr(
                         stdscr,
@@ -222,10 +226,12 @@ def handle_events(
                     spinner_thread.start()
 
                     def run_lxc_command():
+                        log_debug(f"Starting lxc-start for {lxc_id}")
                         try:
                             success = execute_lxc_command(
                                 stdscr, ["lxc-start", "-n", lxc_id], operation_done_event
                             )
+                            log_debug(f"lxc-start success={success}")
                             with screen_lock:
                                 if success:
                                     safe_addstr(
@@ -244,16 +250,17 @@ def handle_events(
                                         curses.color_pair(2),
                                     )
                                 stdscr.refresh()
+                        except Exception as e:
+                            log_debug(f"lxc-start error: {e}")
                         finally:
+                            log_debug("Setting operation_done_event for start")
                             operation_done_event.set()
 
+                    log_debug("Starting lxc_thread for start")
                     lxc_thread = threading.Thread(target=run_lxc_command)
                     lxc_thread.daemon = True
                     lxc_thread.start()
-                    lxc_thread.join()
-                    spinner_thread.join()
-                    lxc_info[:] = get_lxc_info(show_stopped)
-                    display_container_list(stdscr, lxc_info, current_row)
+                    operation_in_progress = True
                 else:
                     safe_addstr(
                         stdscr,
@@ -288,6 +295,7 @@ def handle_events(
                     spinner_thread.start()
 
                     def run_lxc_command():
+                        log_debug(f"Starting lxc-restart for {lxc_id}")
                         try:
                             success = (
                                 execute_lxc_command(
@@ -301,6 +309,7 @@ def handle_events(
                                     operation_done_event,
                                 )
                             )
+                            log_debug(f"lxc-restart success={success}")
                             with screen_lock:
                                 if success:
                                     safe_addstr(
@@ -319,16 +328,17 @@ def handle_events(
                                         curses.color_pair(2),
                                     )
                                 stdscr.refresh()
+                        except Exception as e:
+                            log_debug(f"lxc-restart error: {e}")
                         finally:
+                            log_debug("Setting operation_done_event for restart")
                             operation_done_event.set()
 
+                    log_debug("Starting lxc_thread for restart")
                     lxc_thread = threading.Thread(target=run_lxc_command)
                     lxc_thread.daemon = True
                     lxc_thread.start()
-                    lxc_thread.join()
-                    spinner_thread.join()
-                    lxc_info[:] = get_lxc_info(show_stopped)
-                    display_container_list(stdscr, lxc_info, current_row)
+                    operation_in_progress = True
                 else:
                     safe_addstr(
                         stdscr,
@@ -351,11 +361,13 @@ def handle_events(
     elif key == ord("i"):
         if current_row < len(lxc_info):
             lxc_id = lxc_info[current_row][0]
+            log_debug("Showing info panel")
             show_info(stdscr, lxc_id, pause_event)
-            # No redraw here
+            log_debug("Info panel closed")
     elif key == ord("h"):
+        log_debug("Showing help panel")
         show_help(stdscr, show_stopped, pause_event, plugins)
-        # No redraw here
+        log_debug("Help panel closed")
     elif key in key_map:
         current_row = key_map[key].execute(
             stdscr,
@@ -372,4 +384,4 @@ def handle_events(
         invalid_key_timeout = time.time() + 2
 
     pause_event.clear()
-    return current_row, show_stopped, False, invalid_key_timeout
+    return current_row, show_stopped, False, invalid_key_timeout, operation_in_progress

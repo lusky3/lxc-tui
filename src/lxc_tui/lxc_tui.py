@@ -12,7 +12,6 @@ from lxc_tui.event_handler import handle_events
 
 logger = logging.getLogger(__name__)
 
-
 def load_plugins():
     plugins = []
     plugin_dir = os.path.join(os.path.dirname(__file__), "plugins")
@@ -37,7 +36,6 @@ def load_plugins():
                 log_debug(f"Failed to load plugin {module_name}: {e}")
     return plugins
 
-
 def main(stdscr):
     logger.debug("Checking screen size")
     if curses.LINES < 10 or curses.COLS < 80:
@@ -58,6 +56,8 @@ def main(stdscr):
     pause_event = threading.Event()
     operation_done_event = threading.Event()
     current_row = 0
+    operation_in_progress = False
+    last_refresh_time = 0
 
     logger.debug("Getting initial lxc_info")
     try:
@@ -70,7 +70,9 @@ def main(stdscr):
         return
 
     logger.debug("Starting refresh thread")
-    refresh_thread = threading.Thread(target=refresh_lxc_info, args=(lxc_info, stop_event, pause_event, show_stopped))
+    refresh_thread = threading.Thread(
+        target=refresh_lxc_info, args=(lxc_info, stop_event, pause_event, show_stopped)
+    )
     refresh_thread.daemon = True
     refresh_thread.start()
 
@@ -98,19 +100,35 @@ def main(stdscr):
             safe_addstr(stdscr, curses.LINES - 2, 0, " " * (curses.COLS - 1), curses.color_pair(0))
             invalid_key_timeout = None
 
-        logger.debug("Calling get_lxc_info")
-        new_lxc_info = get_lxc_info(show_stopped)
-        logger.debug("Checking lxc_info")
-        if new_lxc_info != last_lxc_info:
-            lxc_info[:] = new_lxc_info
-            last_lxc_info = lxc_info.copy()
-            display_container_list(stdscr, lxc_info, current_row)
+        # Skip heavy refresh during operation
+        if not operation_in_progress and not pause_event.is_set():
+            # Refresh lxc_info every 1s instead of 50ms
+            current_time = time.time()
+            if current_time - last_refresh_time >= 1.0:
+                logger.debug("Calling get_lxc_info")
+                new_lxc_info = get_lxc_info(show_stopped)
+                logger.debug("Checking lxc_info")
+                if new_lxc_info != last_lxc_info:
+                    lxc_info[:] = new_lxc_info
+                    last_lxc_info = lxc_info.copy()
+                    display_container_list(stdscr, lxc_info, current_row)
+                    update_navigation_bar(stdscr, show_stopped, plugins)
+                last_refresh_time = current_time
 
         logger.debug("Calling handle_events")
-        current_row, show_stopped, should_quit, invalid_key_timeout = handle_events(
+        current_row, show_stopped, should_quit, invalid_key_timeout, operation_in_progress = handle_events(
             stdscr, lxc_info, current_row, show_stopped, pause_event, stop_event, operation_done_event, plugins
         )
-        logger.debug(f"should_quit: {should_quit}")
+        logger.debug(f"should_quit: {should_quit}, operation_in_progress: {operation_in_progress}")
+
+        # Handle operation completion
+        if operation_in_progress and operation_done_event.is_set():
+            logger.debug("Operation completed, updating UI")
+            lxc_info[:] = get_lxc_info(show_stopped)
+            last_lxc_info = lxc_info.copy()
+            display_container_list(stdscr, lxc_info, current_row)
+            update_navigation_bar(stdscr, show_stopped, plugins)
+            operation_in_progress = False
 
         if should_quit:
             logger.debug("Stopping thread")
@@ -120,7 +138,6 @@ def main(stdscr):
             logger.debug("Breaking loop")
             break
         logger.debug("Loop iteration end")
-
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
