@@ -219,7 +219,7 @@ def animate_indicator(stdscr, operation_done_event):
                 safe_addstr(
                     stdscr,
                     curses.LINES - 2,
-                    curses.COLS - 2,  # Move to right corner for visibility
+                    curses.COLS - 2,  # Right corner
                     indicator_chars[i % len(indicator_chars)],
                     curses.A_BOLD,
                 )

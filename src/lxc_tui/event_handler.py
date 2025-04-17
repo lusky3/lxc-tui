@@ -2,7 +2,7 @@ import curses
 import subprocess
 import threading
 import time
-from lxc_tui.core import safe_addstr, log_debug, screen_lock
+from lxc_tui.core import safe_addstr, log_debug, screen_lock  # Added screen_lock
 from lxc_tui.lxc_utils import execute_lxc_command, get_lxc_info
 from lxc_tui.ui_components import (
     display_container_list,
@@ -94,6 +94,7 @@ def handle_events(
                     spinner_thread = threading.Thread(
                         target=animate_indicator, args=(stdscr, operation_done_event)
                     )
+                    spinner_thread.daemon = True
                     spinner_thread.start()
                     if execute_lxc_command(
                         stdscr, ["lxc-start", "-n", lxc_id], operation_done_event
@@ -200,15 +201,7 @@ def handle_events(
                         curses.color_pair(4),
                     )
                     stdscr.refresh()
-            elifS = threading.Event()
-            safe_addstr(
-                stdscr,
-                curses.LINES - 2,
-                0,
-                " " * (curses.COLS - 1),
-                curses.color_pair(0),
-            )
-            if status == "STOPPED":
+            elif status == "STOPPED":
                 safe_addstr(
                     stdscr,
                     curses.LINES - 2,
@@ -359,10 +352,10 @@ def handle_events(
         if current_row < len(lxc_info):
             lxc_id = lxc_info[current_row][0]
             show_info(stdscr, lxc_id, pause_event)
-            # Removed display_container_list and update_navigation_bar
+            # No redraw here
     elif key == ord("h"):
         show_help(stdscr, show_stopped, pause_event, plugins)
-        # Removed display_container_list and update_navigation_bar
+        # No redraw here
     elif key in key_map:
         current_row = key_map[key].execute(
             stdscr,
