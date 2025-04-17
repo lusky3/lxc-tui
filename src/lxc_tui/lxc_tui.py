@@ -47,7 +47,7 @@ def main(stdscr):
     logger.debug("Setting up curses")
     curses.curs_set(0)
     stdscr.nodelay(True)
-    stdscr.timeout(50)
+    stdscr.timeout(10)
 
     show_stopped = False
     lxc_info = []
@@ -81,7 +81,7 @@ def main(stdscr):
     curses.init_pair(1, curses.COLOR_GREEN, curses.COLOR_BLACK)
     curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)
     curses.init_pair(3, curses.COLOR_BLACK, curses.COLOR_WHITE)
-    curses.init_pair(4, curses.COLOR_GREEN, curses.COLOR_BLACK)
+    curses.init_pair(4, curses.COLOR_YELLOW, curses.COLOR_BLACK)
 
     logger.debug("Loading plugins")
     plugins = load_plugins()
@@ -100,19 +100,19 @@ def main(stdscr):
             safe_addstr(stdscr, curses.LINES - 2, 0, " " * (curses.COLS - 1), curses.color_pair(0))
             invalid_key_timeout = None
 
-        # Skip heavy refresh during operation
         if not operation_in_progress and not pause_event.is_set():
-            # Refresh lxc_info every 1s instead of 50ms
             current_time = time.time()
-            if current_time - last_refresh_time >= 1.0:
+            if current_time - last_refresh_time >= 5.0:
                 logger.debug("Calling get_lxc_info")
-                new_lxc_info = get_lxc_info(show_stopped)
-                logger.debug("Checking lxc_info")
-                if new_lxc_info != last_lxc_info:
-                    lxc_info[:] = new_lxc_info
-                    last_lxc_info = lxc_info.copy()
-                    display_container_list(stdscr, lxc_info, current_row)
-                    update_navigation_bar(stdscr, show_stopped, plugins)
+                try:
+                    new_lxc_info = get_lxc_info(show_stopped)
+                    if new_lxc_info != last_lxc_info:
+                        lxc_info[:] = new_lxc_info
+                        last_lxc_info = lxc_info.copy()
+                        display_container_list(stdscr, lxc_info, current_row)
+                        update_navigation_bar(stdscr, show_stopped, plugins)
+                except Exception as e:
+                    log_debug(f"get_lxc_info in loop failed: {e}")
                 last_refresh_time = current_time
 
         logger.debug("Calling handle_events")
@@ -121,13 +121,15 @@ def main(stdscr):
         )
         logger.debug(f"should_quit: {should_quit}, operation_in_progress: {operation_in_progress}")
 
-        # Handle operation completion
         if operation_in_progress and operation_done_event.is_set():
             logger.debug("Operation completed, updating UI")
-            lxc_info[:] = get_lxc_info(show_stopped)
-            last_lxc_info = lxc_info.copy()
-            display_container_list(stdscr, lxc_info, current_row)
-            update_navigation_bar(stdscr, show_stopped, plugins)
+            try:
+                lxc_info[:] = get_lxc_info(show_stopped)
+                last_lxc_info = lxc_info.copy()
+                display_container_list(stdscr, lxc_info, current_row)
+                update_navigation_bar(stdscr, show_stopped, plugins)
+            except Exception as e:
+                log_debug(f"Post-operation get_lxc_info failed: {e}")
             operation_in_progress = False
 
         if should_quit:

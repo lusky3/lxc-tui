@@ -187,6 +187,15 @@ def handle_events(
                                 stdscr.refresh()
                         except Exception as e:
                             log_debug(f"lxc-stop error: {e}")
+                            with screen_lock:
+                                safe_addstr(
+                                    stdscr,
+                                    curses.LINES - 2,
+                                    0,
+                                    f"Error stopping {lxc_id}: {e}",
+                                    curses.color_pair(2),
+                                )
+                                stdscr.refresh()
                         finally:
                             log_debug("Setting operation_done_event for stop")
                             operation_done_event.set()
@@ -252,6 +261,15 @@ def handle_events(
                                 stdscr.refresh()
                         except Exception as e:
                             log_debug(f"lxc-start error: {e}")
+                            with screen_lock:
+                                safe_addstr(
+                                    stdscr,
+                                    curses.LINES - 2,
+                                    0,
+                                    f"Error starting {lxc_id}: {e}",
+                                    curses.color_pair(2),
+                                )
+                                stdscr.refresh()
                         finally:
                             log_debug("Setting operation_done_event for start")
                             operation_done_event.set()
@@ -330,6 +348,15 @@ def handle_events(
                                 stdscr.refresh()
                         except Exception as e:
                             log_debug(f"lxc-restart error: {e}")
+                            with screen_lock:
+                                safe_addstr(
+                                    stdscr,
+                                    curses.LINES - 2,
+                                    0,
+                                    f"Error restarting {lxc_id}: {e}",
+                                    curses.color_pair(2),
+                                )
+                                stdscr.refresh()
                         finally:
                             log_debug("Setting operation_done_event for restart")
                             operation_done_event.set()

@@ -4,28 +4,26 @@ import time
 import curses
 from lxc_tui.core import log_debug, safe_addstr
 
-
 def get_lxc_column(column_name):
     try:
-        with open(os.devnull, "w") as devnull:
-            proc = subprocess.Popen(
-                ["lxc-ls", "--fancy", f"--fancy-format={column_name}"],
-                stdout=subprocess.PIPE,
-                stderr=devnull,
-                text=True,
-                encoding="utf-8",
-                start_new_session=True,
-            )
-            lines = [line.strip() for line in proc.stdout if line.strip()]
-            proc.wait(timeout=5)
-            return lines[1:] if lines else []
-    except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as e:
-        log_debug(f"Error in get_lxc_column for column {column_name}: {e}")
+        proc = subprocess.run(
+            ["lxc-ls", "--fancy", f"--fancy-format={column_name}"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=True,
+        )
+        lines = [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+        return lines[1:] if lines else []
+    except subprocess.TimeoutExpired:
+        log_debug(f"Timeout in get_lxc_column for column {column_name}")
+        return []
+    except subprocess.CalledProcessError as e:
+        log_debug(f"Error in get_lxc_column for column {column_name}: {e.stderr}")
         return []
     except Exception as e:
         log_debug(f"Unexpected error in get_lxc_column: {e}")
         return []
-
 
 def get_lxc_info(include_stopped=False):
     try:
@@ -72,7 +70,6 @@ def get_lxc_info(include_stopped=False):
         log_debug(f"Error getting LXC info: {e}")
         return []
 
-
 def get_lxc_config(lxc_id):
     config_file = f"/etc/pve/lxc/{lxc_id}.conf"
     config_info = {}
@@ -83,57 +80,27 @@ def get_lxc_config(lxc_id):
             )
     return config_info
 
-
 def execute_lxc_command(stdscr, command, operation_done_event):
     try:
         log_debug(f"Executing command: {' '.join(command)}")
-        with open(os.devnull, "w") as devnull:
-            proc = subprocess.Popen(
-                command, start_new_session=True, stdout=devnull, stderr=devnull
-            )
-            animation = ["|", "/", "-", "\\"]
-            idx = 0
-            start_time = time.time()
-            while proc.poll() is None and (time.time() - start_time) < 15:
-                safe_addstr(
-                    stdscr,
-                    curses.LINES - 2,
-                    0,
-                    f"Executing {command[0]} {command[-1]} {animation[idx % 4]}",
-                    curses.color_pair(4),
-                )
-                stdscr.refresh()
-                time.sleep(0.1)
-                idx += 1
-            proc.wait(timeout=15 - (time.time() - start_time))
-        log_debug(f"Command completed with return code {proc.returncode}")
-        return proc.returncode == 0
-    except subprocess.TimeoutExpired as e:
-        log_debug(f"Command timed out: {e}")
-        proc.kill()
-        safe_addstr(
-            stdscr,
-            curses.LINES - 2,
-            0,
-            f"Command {command[0]} {command[-1]} timed out",
-            curses.color_pair(2),
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False
         )
-        stdscr.refresh()
-        time.sleep(2)
+        if result.returncode != 0:
+            log_debug(f"Command failed: {result.stderr}")
+            return False
+        log_debug(f"Command completed with return code {result.returncode}")
+        return True
+    except subprocess.TimeoutExpired:
+        log_debug(f"Command {command} timed out after 15s")
         return False
     except Exception as e:
-        log_debug(f"Error executing command: {e}")
-        safe_addstr(
-            stdscr,
-            curses.LINES - 2,
-            0,
-            f"Error executing {command[0]} {command[-1]}: {e}",
-            curses.color_pair(2),
-        )
-        stdscr.refresh()
-        time.sleep(2)
+        log_debug(f"Error executing command {command}: {e}")
         return False
-
 
 def refresh_lxc_info(lxc_info, stop_event, pause_event, show_stopped):
     while not stop_event.is_set():
@@ -142,4 +109,4 @@ def refresh_lxc_info(lxc_info, stop_event, pause_event, show_stopped):
             if new_lxc_info != lxc_info:
                 lxc_info[:] = new_lxc_info
                 log_debug("LXC info refreshed")
-        time.sleep(0.5)
+        time.sleep(5)  # Increased to 5s
