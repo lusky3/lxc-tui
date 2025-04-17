@@ -95,15 +95,16 @@ def main(stdscr):
     logger.debug("Entering main loop")
     while True:
         logger.debug("Loop iteration start")
+        start_time = time.time()
         if invalid_key_timeout and time.time() > invalid_key_timeout:
             logger.debug("Clearing invalid_key_timeout")
             safe_addstr(stdscr, curses.LINES - 2, 0, " " * (curses.COLS - 1), curses.color_pair(0))
             invalid_key_timeout = None
 
-        # Skip get_lxc_info during operations; rely on refresh_lxc_info
+        # Skip get_lxc_info during pause or operations
         if not operation_in_progress and not pause_event.is_set():
             current_time = time.time()
-            if current_time - last_refresh_time >= 10.0:
+            if current_time - last_refresh_time >= 30.0:
                 logger.debug("Calling get_lxc_info")
                 try:
                     new_lxc_info = get_lxc_info(show_stopped)
@@ -140,7 +141,7 @@ def main(stdscr):
             refresh_thread.join()
             logger.debug("Breaking loop")
             break
-        logger.debug("Loop iteration end")
+        logger.debug(f"Loop iteration took {time.time() - start_time:.2f}s")
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)

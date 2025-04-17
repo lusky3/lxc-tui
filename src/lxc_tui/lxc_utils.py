@@ -9,12 +9,13 @@ def get_lxc_column(column_name):
         proc = subprocess.run(
             ["lxc-ls", "--fancy", f"--fancy-format={column_name}"],
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,  # Explicitly capture stderr
+            stderr=subprocess.PIPE,
             text=True,
             timeout=5,
             check=True,
         )
         lines = [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+        log_debug(f"lxc-ls for {column_name} stderr: {proc.stderr}")
         return lines[1:] if lines else []
     except subprocess.TimeoutExpired:
         log_debug(f"Timeout in get_lxc_column for column {column_name}")
@@ -92,7 +93,7 @@ def execute_lxc_command(stdscr, command, operation_done_event):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            timeout=5,  # Reduced to 5s
+            timeout=2,  # Reduced to 2s
             check=False
         )
         elapsed = time.time() - start_time
@@ -102,7 +103,7 @@ def execute_lxc_command(stdscr, command, operation_done_event):
         log_debug(f"Command completed after {elapsed:.2f}s with return code {result.returncode}")
         return True
     except subprocess.TimeoutExpired:
-        log_debug(f"Command {command} timed out after 5s")
+        log_debug(f"Command {command} timed out after 2s")
         return False
     except Exception as e:
         log_debug(f"Error executing command {command}: {e}")
@@ -115,4 +116,4 @@ def refresh_lxc_info(lxc_info, stop_event, pause_event, show_stopped):
             if new_lxc_info != lxc_info:
                 lxc_info[:] = new_lxc_info
                 log_debug("LXC info refreshed")
-        time.sleep(10)  # Increased to 10s
+        time.sleep(30)  # Increased to 30s

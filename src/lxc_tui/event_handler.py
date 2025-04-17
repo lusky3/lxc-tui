@@ -78,11 +78,10 @@ def handle_events(
                 stdscr.attroff(curses.color_pair(4))
                 stdscr.refresh()
                 stdscr.nodelay(False)
-                while True:
+                try:
                     choice = stdscr.getch()
-                    if choice in [ord("y"), ord("Y"), ord("n"), ord("N")]:
-                        break
-                stdscr.nodelay(True)
+                finally:
+                    stdscr.nodelay(True)
                 if choice in [ord("y"), ord("Y")]:
                     safe_addstr(
                         stdscr,
@@ -150,9 +149,18 @@ def handle_events(
                 )
                 stdscr.refresh()
                 stdscr.nodelay(False)
-                choice = stdscr.getch()
-                stdscr.nodelay(True)
+                try:
+                    choice = stdscr.getch()
+                finally:
+                    stdscr.nodelay(True)
                 if choice in [ord("y"), ord("Y")]:
+                    safe_addstr(
+                        stdscr,
+                        curses.LINES - 2,
+                        0,
+                        " " * (curses.COLS - 1),
+                        curses.color_pair(0),
+                    )
                     operation_done_event.clear()
                     spinner_thread = threading.Thread(
                         target=animate_indicator, args=(stdscr, operation_done_event)
@@ -225,6 +233,8 @@ def handle_events(
                         curses.color_pair(4),
                     )
                     stdscr.refresh()
+                    display_container_list(stdscr, lxc_info, current_row)
+                    update_navigation_bar(stdscr, show_stopped, plugins)
             elif status == "STOPPED":
                 safe_addstr(
                     stdscr,
@@ -235,9 +245,18 @@ def handle_events(
                 )
                 stdscr.refresh()
                 stdscr.nodelay(False)
-                choice = stdscr.getch()
-                stdscr.nodelay(True)
+                try:
+                    choice = stdscr.getch()
+                finally:
+                    stdscr.nodelay(True)
                 if choice in [ord("y"), ord("Y")]:
+                    safe_addstr(
+                        stdscr,
+                        curses.LINES - 2,
+                        0,
+                        " " * (curses.COLS - 1),
+                        curses.color_pair(0),
+                    )
                     operation_done_event.clear()
                     spinner_thread = threading.Thread(
                         target=animate_indicator, args=(stdscr, operation_done_event)
@@ -310,6 +329,8 @@ def handle_events(
                         curses.color_pair(4),
                     )
                     stdscr.refresh()
+                    display_container_list(stdscr, lxc_info, current_row)
+                    update_navigation_bar(stdscr, show_stopped, plugins)
         update_navigation_bar(stdscr, show_stopped, plugins)
     elif key == ord("r"):
         if current_row < len(lxc_info):
@@ -324,9 +345,18 @@ def handle_events(
                 )
                 stdscr.refresh()
                 stdscr.nodelay(False)
-                choice = stdscr.getch()
-                stdscr.nodelay(True)
+                try:
+                    choice = stdscr.getch()
+                finally:
+                    stdscr.nodelay(True)
                 if choice in [ord("y"), ord("Y")]:
+                    safe_addstr(
+                        stdscr,
+                        curses.LINES - 2,
+                        0,
+                        " " * (curses.COLS - 1),
+                        curses.color_pair(0),
+                    )
                     operation_done_event.clear()
                     spinner_thread = threading.Thread(
                         target=animate_indicator, args=(stdscr, operation_done_event)
@@ -408,6 +438,8 @@ def handle_events(
                         curses.color_pair(4),
                     )
                     stdscr.refresh()
+                    display_container_list(stdscr, lxc_info, current_row)
+                    update_navigation_bar(stdscr, show_stopped, plugins)
             else:
                 safe_addstr(
                     stdscr,
@@ -424,10 +456,12 @@ def handle_events(
             log_debug("Showing info panel")
             show_info(stdscr, lxc_id, pause_event)
             log_debug("Info panel closed")
+            # Removed redraw to avoid flashing
     elif key == ord("h"):
         log_debug("Showing help panel")
         show_help(stdscr, show_stopped, pause_event, plugins)
         log_debug("Help panel closed")
+        # Removed redraw to avoid flashing
     elif key in key_map:
         current_row = key_map[key].execute(
             stdscr,

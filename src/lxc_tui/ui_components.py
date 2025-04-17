@@ -1,7 +1,7 @@
 import curses
 import time
 from lxc_tui.core import log_debug, safe_addstr, screen_lock
-
+from lxc_tui.lxc_utils import get_lxc_config
 
 def display_container_list(stdscr, lxc_info, current_row):
     lines, cols = stdscr.getmaxyx()
@@ -51,7 +51,6 @@ def display_container_list(stdscr, lxc_info, current_row):
 
     stdscr.refresh()
 
-
 def update_navigation_bar(stdscr, show_stopped, plugins, force=False):
     base_nav = "Commands: Up/Down - Navigate | Enter/Space - Attach | i - Info | x - Stop/Start | r - Restart | h - Help"
     plugin_nav = " | ".join(
@@ -82,7 +81,6 @@ def update_navigation_bar(stdscr, show_stopped, plugins, force=False):
         safe_addstr(stdscr, curses.LINES - 1, 0, " " * curses.COLS)
         safe_addstr(stdscr, curses.LINES - 1, 0, nav_text, curses.A_BOLD)
         stdscr.refresh()
-
 
 def update_highlighted_row(stdscr, old_row, new_row, lxc_info):
     lines, cols = stdscr.getmaxyx()
@@ -119,7 +117,6 @@ def update_highlighted_row(stdscr, old_row, new_row, lxc_info):
     stdscr.refresh()
     log_debug("Highlight update complete")
 
-
 def show_panel(stdscr, lines, color_pair, pause_event):
     try:
         panel_height = len(lines) + 4
@@ -133,6 +130,7 @@ def show_panel(stdscr, lines, color_pair, pause_event):
         start_x = max(0, (curses.COLS - panel_width) // 2)
 
         pause_event.set()
+        stdscr.clear()  # Clear screen for panel
 
         stdscr.attron(color_pair)
         safe_addstr(stdscr, start_y, start_x, f'┌{"─" * (panel_width - 2)}┐')
@@ -163,8 +161,8 @@ def show_panel(stdscr, lines, color_pair, pause_event):
             f"Error in show_panel: {e}, LINES={curses.LINES}, COLS={curses.COLS}, panel_width={panel_width}, panel_height={panel_height}"
         )
     finally:
+        stdscr.clear()  # Clear panel before resuming
         pause_event.clear()
-
 
 def show_help(stdscr, show_stopped, pause_event, plugins):
     help_lines = [
@@ -194,10 +192,7 @@ def show_help(stdscr, show_stopped, pause_event, plugins):
     help_lines.append("Press any key to return...")
     show_panel(stdscr, help_lines, curses.color_pair(4), pause_event)
 
-
 def show_info(stdscr, lxc_id, pause_event):
-    from lxc_tui.lxc_utils import get_lxc_config
-
     config_info = get_lxc_config(lxc_id)
 
     info_lines = [
@@ -209,7 +204,6 @@ def show_info(stdscr, lxc_id, pause_event):
         info_lines.append(f"{key.capitalize():<20}{value:<30}")
     show_panel(stdscr, info_lines, curses.color_pair(4), pause_event)
 
-
 def animate_indicator(stdscr, operation_done_event):
     indicator_chars = ["|", "/", "-", "\\"]
     i = 0
@@ -219,7 +213,7 @@ def animate_indicator(stdscr, operation_done_event):
                 safe_addstr(
                     stdscr,
                     curses.LINES - 2,
-                    curses.COLS - 2,  # Right corner
+                    curses.COLS - 2,
                     indicator_chars[i % len(indicator_chars)],
                     curses.A_BOLD,
                 )
