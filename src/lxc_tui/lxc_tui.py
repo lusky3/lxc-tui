@@ -100,9 +100,10 @@ def main(stdscr):
             safe_addstr(stdscr, curses.LINES - 2, 0, " " * (curses.COLS - 1), curses.color_pair(0))
             invalid_key_timeout = None
 
+        # Skip get_lxc_info during operations; rely on refresh_lxc_info
         if not operation_in_progress and not pause_event.is_set():
             current_time = time.time()
-            if current_time - last_refresh_time >= 5.0:
+            if current_time - last_refresh_time >= 10.0:
                 logger.debug("Calling get_lxc_info")
                 try:
                     new_lxc_info = get_lxc_info(show_stopped)

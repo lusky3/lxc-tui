@@ -185,6 +185,17 @@ def handle_events(
                                         curses.color_pair(2),
                                     )
                                 stdscr.refresh()
+                        except subprocess.TimeoutExpired:
+                            log_debug(f"lxc-stop timed out for {lxc_id}")
+                            with screen_lock:
+                                safe_addstr(
+                                    stdscr,
+                                    curses.LINES - 2,
+                                    0,
+                                    f"Timeout stopping {lxc_id}",
+                                    curses.color_pair(2),
+                                )
+                                stdscr.refresh()
                         except Exception as e:
                             log_debug(f"lxc-stop error: {e}")
                             with screen_lock:
@@ -258,6 +269,17 @@ def handle_events(
                                         f"Failed to start {lxc_id}",
                                         curses.color_pair(2),
                                     )
+                                stdscr.refresh()
+                        except subprocess.TimeoutExpired:
+                            log_debug(f"lxc-start timed out for {lxc_id}")
+                            with screen_lock:
+                                safe_addstr(
+                                    stdscr,
+                                    curses.LINES - 2,
+                                    0,
+                                    f"Timeout starting {lxc_id}",
+                                    curses.color_pair(2),
+                                )
                                 stdscr.refresh()
                         except Exception as e:
                             log_debug(f"lxc-start error: {e}")
@@ -345,6 +367,17 @@ def handle_events(
                                         f"Failed to restart {lxc_id}",
                                         curses.color_pair(2),
                                     )
+                                stdscr.refresh()
+                        except subprocess.TimeoutExpired:
+                            log_debug(f"lxc-restart timed out for {lxc_id}")
+                            with screen_lock:
+                                safe_addstr(
+                                    stdscr,
+                                    curses.LINES - 2,
+                                    0,
+                                    f"Timeout restarting {lxc_id}",
+                                    curses.color_pair(2),
+                                )
                                 stdscr.refresh()
                         except Exception as e:
                             log_debug(f"lxc-restart error: {e}")

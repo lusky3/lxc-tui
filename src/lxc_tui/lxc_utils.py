@@ -8,7 +8,8 @@ def get_lxc_column(column_name):
     try:
         proc = subprocess.run(
             ["lxc-ls", "--fancy", f"--fancy-format={column_name}"],
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,  # Explicitly capture stderr
             text=True,
             timeout=5,
             check=True,
@@ -27,11 +28,13 @@ def get_lxc_column(column_name):
 
 def get_lxc_info(include_stopped=False):
     try:
+        start_time = time.time()
         names = get_lxc_column("NAME")
         states = get_lxc_column("STATE")
         ipv4s = get_lxc_column("IPV4")
         ipv6s = get_lxc_column("IPV6")
         unprivilegeds = get_lxc_column("UNPRIVILEGED")
+        log_debug(f"get_lxc_info took {time.time() - start_time:.2f}s")
 
         min_length = min(
             len(names), len(states), len(ipv4s), len(ipv6s), len(unprivilegeds)
@@ -83,20 +86,23 @@ def get_lxc_config(lxc_id):
 def execute_lxc_command(stdscr, command, operation_done_event):
     try:
         log_debug(f"Executing command: {' '.join(command)}")
+        start_time = time.time()
         result = subprocess.run(
             command,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=15,
+            timeout=5,  # Reduced to 5s
             check=False
         )
+        elapsed = time.time() - start_time
         if result.returncode != 0:
-            log_debug(f"Command failed: {result.stderr}")
+            log_debug(f"Command failed after {elapsed:.2f}s: {result.stderr}")
             return False
-        log_debug(f"Command completed with return code {result.returncode}")
+        log_debug(f"Command completed after {elapsed:.2f}s with return code {result.returncode}")
         return True
     except subprocess.TimeoutExpired:
-        log_debug(f"Command {command} timed out after 15s")
+        log_debug(f"Command {command} timed out after 5s")
         return False
     except Exception as e:
         log_debug(f"Error executing command {command}: {e}")
@@ -109,4 +115,4 @@ def refresh_lxc_info(lxc_info, stop_event, pause_event, show_stopped):
             if new_lxc_info != lxc_info:
                 lxc_info[:] = new_lxc_info
                 log_debug("LXC info refreshed")
-        time.sleep(5)  # Increased to 5s
+        time.sleep(10)  # Increased to 10s
