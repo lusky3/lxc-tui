@@ -101,10 +101,9 @@ def main(stdscr):
             safe_addstr(stdscr, curses.LINES - 2, 0, " " * (curses.COLS - 1), curses.color_pair(0))
             invalid_key_timeout = None
 
-        # Skip get_lxc_info during pause or operations
         if not operation_in_progress and not pause_event.is_set():
             current_time = time.time()
-            if current_time - last_refresh_time >= 30.0:
+            if current_time - last_refresh_time >= 60.0:
                 logger.debug("Calling get_lxc_info")
                 try:
                     new_lxc_info = get_lxc_info(show_stopped)
@@ -144,21 +143,26 @@ def main(stdscr):
         logger.debug(f"Loop iteration took {time.time() - start_time:.2f}s")
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    # Configure logging to file and console
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        handlers=[
+            logging.FileHandler("/root/git/lxc-tui/debug_log.txt"),
+            logging.StreamHandler()  # Output to console
+        ]
+    )
     parser = argparse.ArgumentParser(description="LXC TUI")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
     args = parser.parse_args()
     import lxc_tui.core
 
     lxc_tui.core.DEBUG = args.debug
-
-    if lxc_tui.core.DEBUG:
-        with open("debug_log.txt", "w") as debug_file:
-            debug_file.write(f"Debugging started at {time.ctime()}\n")
+    logger.debug(f"Debugging started with --debug={args.debug}")
 
     try:
         curses.wrapper(main)
     except Exception as e:
-        log_debug(f"Error running the TUI: {e}")
+        logger.error(f"Error running the TUI: {e}")
         print(f"Error running the TUI: {e}")
         input("Press Enter to exit...")

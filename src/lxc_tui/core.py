@@ -1,16 +1,14 @@
 import threading
 import curses
-import time
+import logging
 
 screen_lock = threading.Lock()
 DEBUG = False
-
+logger = logging.getLogger(__name__)
 
 def log_debug(message):
     if DEBUG:
-        with open("debug_log.txt", "a") as debug_file:
-            debug_file.write(f"{time.ctime()}: {message}\n")
-
+        logger.debug(message)
 
 def safe_addstr(stdscr, y, x, text, attr=0):
     with screen_lock:
@@ -24,7 +22,6 @@ def safe_addstr(stdscr, y, x, text, attr=0):
             except curses.error as e:
                 log_debug(f"Error in safe_addstr at ({y}, {x}): {e}")
         log_debug(f"Releasing screen_lock for safe_addstr at ({y}, {x})")
-
 
 class Plugin:
     """Base class for plugins to define their behavior."""
